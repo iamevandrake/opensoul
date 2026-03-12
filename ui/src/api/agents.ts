@@ -45,6 +45,12 @@ export interface AgentHireResponse {
   approval: Approval | null;
 }
 
+export interface DeployTemplateResult {
+  templateId: string;
+  templateName: string;
+  agents: Array<{ id: string; name: string; role: string }>;
+}
+
 function withCompanyScope(path: string, companyId?: string) {
   if (!companyId) return path;
   const separator = path.includes("?") ? "&" : "?";
@@ -144,4 +150,10 @@ export const agentsApi = {
   ) => api.post<HeartbeatRun | { status: "skipped" }>(agentPath(id, companyId, "/wakeup"), data),
   loginWithClaude: (id: string, companyId?: string) =>
     api.post<ClaudeLoginResult>(agentPath(id, companyId, "/claude-login"), {}),
+  listTeamTemplates: (companyId: string) =>
+    api.get<import("@paperclipai/shared").TeamTemplate[]>(`/companies/${companyId}/team-templates`),
+  deployTemplate: (
+    companyId: string,
+    data: { templateId: string; adapterType: string; adapterConfig?: Record<string, unknown> },
+  ) => api.post<DeployTemplateResult>(`/companies/${companyId}/deploy-template`, data),
 };
