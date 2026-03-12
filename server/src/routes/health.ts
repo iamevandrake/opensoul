@@ -44,6 +44,7 @@ export function healthRoutes(
       bootstrapStatus,
       features: {
         companyDeletionEnabled: opts.companyDeletionEnabled,
+        googleOAuthEnabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
       },
     });
   });

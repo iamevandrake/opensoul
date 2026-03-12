@@ -68,6 +68,31 @@ export const authApi = {
     await authPost("/sign-up/email", input);
   },
 
+  signInGoogle: async (callbackURL?: string) => {
+    // Redirect-based OAuth: POST to better-auth social sign-in endpoint
+    // which returns a redirect URL to Google's consent screen.
+    const res = await fetch("/api/auth/sign-in/social", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: "google", callbackURL: callbackURL ?? "/" }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message =
+        (payload as { error?: { message?: string } | string } | null)?.error &&
+        typeof (payload as { error?: { message?: string } | string }).error === "object"
+          ? ((payload as { error?: { message?: string } }).error?.message ?? `Request failed: ${res.status}`)
+          : (payload as { error?: string } | null)?.error ?? `Request failed: ${res.status}`;
+      throw new Error(message);
+    }
+    // better-auth returns { url: "https://accounts.google.com/..." } for OAuth redirect
+    const url = (payload as { url?: string } | null)?.url;
+    if (url) {
+      window.location.href = url;
+    }
+  },
+
   signOut: async () => {
     await authPost("/sign-out", {});
   },
