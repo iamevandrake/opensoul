@@ -6,7 +6,8 @@ import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Settings, Check } from "lucide-react";
+import { Settings, Check, Key } from "lucide-react";
+import { ApiKeyManager } from "../components/ApiKeyManager";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -376,6 +377,16 @@ export function CompanySettings() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* API Keys (BYOK) */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          API Keys
+        </div>
+        <div className="rounded-md border border-border px-4 py-4">
+          <ApiKeyManager companyId={selectedCompanyId!} />
         </div>
       </div>
 

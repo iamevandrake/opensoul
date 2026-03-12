@@ -1,24 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTeamTemplate } from "@paperclipai/shared";
-import { useCompany } from "../context/CompanyContext";
 import { agentsApi } from "../api/agents";
+import { secretsApi } from "../api/secrets";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { TemplatePicker, TemplateDeploySummary } from "./TemplatePicker";
+import { ApiKeyManager } from "./ApiKeyManager";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Key,
   Loader2,
   Rocket,
   Sparkles,
   Users,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import type { CompanySecret } from "@paperclipai/shared";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 interface ConsumerOnboardingProps {
   userName: string | null;
@@ -26,6 +29,8 @@ interface ConsumerOnboardingProps {
   companyPrefix: string | null;
   onDismiss: () => void;
 }
+
+const ANTHROPIC_KEY_NAME = "ANTHROPIC_API_KEY";
 
 export function ConsumerOnboarding({
   userName,
@@ -36,12 +41,24 @@ export function ConsumerOnboarding({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>(1);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deployedAgents, setDeployedAgents] = useState<
     Array<{ id: string; name: string; role: string }>
   >([]);
+
+  const { data: secrets } = useQuery({
+    queryKey: queryKeys.secrets.list(companyId),
+    queryFn: () => secretsApi.list(companyId),
+    enabled: !!companyId,
+  });
+
+  const hasApiKey = secrets?.some(
+    (s: CompanySecret) => s.name === ANTHROPIC_KEY_NAME,
+  );
 
   const selectedTemplate = selectedTemplateId
     ? getTeamTemplate(selectedTemplateId)
@@ -63,7 +80,7 @@ export function ConsumerOnboarding({
       queryClient.invalidateQueries({
         queryKey: queryKeys.agents.list(companyId),
       });
-      setStep(3);
+      setStep(4);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deploy team");
     } finally {
@@ -79,6 +96,8 @@ export function ConsumerOnboarding({
     }
   }
 
+  const totalSteps = 4;
+
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
       <div className="max-w-lg w-full space-y-6">
@@ -87,10 +106,10 @@ export function ConsumerOnboarding({
           <Sparkles className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">Set up your team</span>
           <span className="text-sm text-muted-foreground/60">
-            Step {step} of 3
+            Step {step} of {totalSteps}
           </span>
           <div className="flex items-center gap-1.5 ml-auto">
-            {[1, 2, 3].map((s) => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
               <div
                 key={s}
                 className={cn(
@@ -126,8 +145,36 @@ export function ConsumerOnboarding({
           </div>
         )}
 
-        {/* Step 2: Confirm deployment */}
-        {step === 2 && selectedTemplate && (
+        {/* Step 2: API Key (BYOK) */}
+        {step === 2 && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="bg-muted/50 p-2 rounded-md">
+                <Key className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <h2 className="font-medium">Connect your API key</h2>
+                <p className="text-xs text-muted-foreground">
+                  Your agents need an Anthropic API key to run. You pay for usage
+                  directly.
+                </p>
+              </div>
+            </div>
+
+            <ApiKeyManager
+              companyId={companyId}
+              compact
+              onKeyConfigured={() => {
+                queryClient.invalidateQueries({
+                  queryKey: queryKeys.secrets.list(companyId),
+                });
+              }}
+            />
+          </div>
+        )}
+
+        {/* Step 3: Review & deploy */}
+        {step === 3 && selectedTemplate && (
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <div className="bg-muted/50 p-2 rounded-md">
@@ -143,18 +190,19 @@ export function ConsumerOnboarding({
 
             <TemplateDeploySummary template={selectedTemplate} />
 
-            <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
-              <p className="text-xs text-muted-foreground">
-                All agents will use the default adapter configuration. You can
-                reconfigure individual agents from the Agents page after
-                deployment.
-              </p>
-            </div>
+            {hasApiKey && (
+              <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 dark:border-green-500/25 dark:bg-green-950/40">
+                <Check className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                <p className="text-xs text-green-800 dark:text-green-200">
+                  API key will be injected into all agents automatically.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Step 3: Success */}
-        {step === 3 && (
+        {/* Step 4: Success */}
+        {step === 4 && (
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <div className="bg-green-500/10 p-2 rounded-md">
@@ -192,22 +240,30 @@ export function ConsumerOnboarding({
         )}
 
         {/* Error */}
-        {error && (
-          <p className="text-sm text-destructive">{error}</p>
-        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-2">
           <div>
             {step === 1 && (
-              <Button variant="ghost" onClick={onDismiss} className="text-muted-foreground">
+              <Button
+                variant="ghost"
+                onClick={onDismiss}
+                className="text-muted-foreground"
+              >
                 Skip to dashboard
               </Button>
             )}
             {step === 2 && (
+              <Button variant="ghost" onClick={() => setStep(1)}>
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                Back
+              </Button>
+            )}
+            {step === 3 && (
               <Button
                 variant="ghost"
-                onClick={() => setStep(1)}
+                onClick={() => setStep(2)}
                 disabled={loading}
               >
                 <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -227,6 +283,12 @@ export function ConsumerOnboarding({
               </Button>
             )}
             {step === 2 && (
+              <Button onClick={() => setStep(3)}>
+                {hasApiKey ? "Continue" : "Skip for now"}
+                <ArrowRight className="h-4 w-4 ml-1.5" />
+              </Button>
+            )}
+            {step === 3 && (
               <Button onClick={handleDeploy} disabled={loading}>
                 {loading ? (
                   <>
@@ -241,7 +303,7 @@ export function ConsumerOnboarding({
                 )}
               </Button>
             )}
-            {step === 3 && (
+            {step === 4 && (
               <Button onClick={handleFinish}>
                 Go to Agents
                 <ArrowRight className="h-4 w-4 ml-1.5" />
