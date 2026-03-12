@@ -44,6 +44,7 @@ export function Layout() {
     queryFn: () => healthApi.get(),
     retry: false,
   });
+  const consumerMode = health?.deploymentMode === "authenticated";
 
   useEffect(() => {
     if (companiesLoading || onboardingTriggered.current) return;
@@ -211,7 +212,7 @@ export function Layout() {
         >
           <div className="flex flex-1 min-h-0 overflow-hidden">
             <CompanyRail />
-            <Sidebar />
+            <Sidebar consumerMode={consumerMode} />
           </div>
           <div className="border-t border-r border-border px-3 py-2 bg-background">
             <div className="flex items-center gap-1">
@@ -245,7 +246,7 @@ export function Layout() {
                 sidebarOpen ? "w-60" : "w-0"
               )}
             >
-              <Sidebar />
+              <Sidebar consumerMode={consumerMode} />
             </div>
           </div>
           <div className="border-t border-r border-border px-3 py-2">
