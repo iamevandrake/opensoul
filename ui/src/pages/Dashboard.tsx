@@ -21,6 +21,7 @@ import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
 import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Sparkles, ArrowRight, Users, Zap, FolderOpen } from "lucide-react";
+import { ConsumerOnboarding } from "../components/ConsumerOnboarding";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -257,13 +258,14 @@ export function Dashboard() {
   const hasNoIssues = issues !== undefined && issues.length === 0;
   const isFreshWorkspace = hasNoAgents && hasNoIssues && !welcomeDismissed;
 
+  const selectedCompanyPrefix = companies.find((c) => c.id === selectedCompanyId)?.issuePrefix ?? null;
+
   if (isFreshWorkspace) {
     return (
-      <ConsumerWelcome
+      <ConsumerOnboarding
         userName={session?.user?.name ?? null}
-        onGetStarted={() => {
-          openOnboarding({ initialStep: 2, companyId: selectedCompanyId! });
-        }}
+        companyId={selectedCompanyId!}
+        companyPrefix={selectedCompanyPrefix}
         onDismiss={() => {
           setWelcomeDismissed(true);
           try { localStorage.setItem("opensoul.welcomeDismissed", "1"); } catch {}
