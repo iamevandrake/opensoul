@@ -9,6 +9,7 @@ import {
   SquarePen,
   Network,
   Settings,
+  Key,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -22,7 +23,11 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 
-export function Sidebar() {
+interface SidebarProps {
+  consumerMode?: boolean;
+}
+
+export function Sidebar({ consumerMode = false }: SidebarProps) {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { data: sidebarBadges } = useQuery({
@@ -88,17 +93,26 @@ export function Sidebar() {
 
         <SidebarSection label="Work">
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
-          <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+          {!consumerMode && (
+            <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+          )}
         </SidebarSection>
 
-        <SidebarProjects />
+        {!consumerMode && <SidebarProjects />}
 
         <SidebarAgents />
 
-        <SidebarSection label="Company">
-          <SidebarNavItem to="/org" label="Org" icon={Network} />
-          <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
-          <SidebarNavItem to="/activity" label="Activity" icon={History} />
+        <SidebarSection label={consumerMode ? "Settings" : "Company"}>
+          {!consumerMode && (
+            <>
+              <SidebarNavItem to="/org" label="Org" icon={Network} />
+              <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
+              <SidebarNavItem to="/activity" label="Activity" icon={History} />
+            </>
+          )}
+          {consumerMode && (
+            <SidebarNavItem to="/company/settings" label="API Keys" icon={Key} />
+          )}
           <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
         </SidebarSection>
       </nav>

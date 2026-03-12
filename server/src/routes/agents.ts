@@ -15,6 +15,8 @@ import {
   updateAgentInstructionsPathSchema,
   wakeAgentSchema,
   updateAgentSchema,
+  getTeamTemplate,
+  TEAM_TEMPLATES,
 } from "@paperclipai/shared";
 import { validate } from "../middleware/validate.js";
 import {
@@ -815,6 +817,109 @@ export function agentRoutes(db: Db) {
     });
 
     res.status(201).json(agent);
+  });
+
+  // --- Team template endpoints ---
+
+  router.get("/companies/:companyId/team-templates", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    res.json(TEAM_TEMPLATES);
+  });
+
+  router.post("/companies/:companyId/deploy-template", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertBoard(req);
+    assertCompanyAccess(req, companyId);
+
+    const { templateId, adapterType, adapterConfig: baseAdapterConfig } = req.body as {
+      templateId: string;
+      adapterType: string;
+      adapterConfig?: Record<string, unknown>;
+    };
+
+    if (!templateId || typeof templateId !== "string") {
+      res.status(400).json({ error: "templateId is required" });
+      return;
+    }
+
+    const template = getTeamTemplate(templateId);
+    if (!template) {
+      res.status(404).json({ error: `Template "${templateId}" not found` });
+      return;
+    }
+
+    const effectiveAdapterType = adapterType || "claude_local";
+    const effectiveAdapterConfig = baseAdapterConfig ?? {};
+
+    // Auto-inject ANTHROPIC_API_KEY secret ref if the company has one stored
+    const anthropicSecret = await secretsSvc.getByName(companyId, "ANTHROPIC_API_KEY");
+    if (anthropicSecret) {
+      const env = (effectiveAdapterConfig.env ?? {}) as Record<string, unknown>;
+      if (!env.ANTHROPIC_API_KEY) {
+        env.ANTHROPIC_API_KEY = {
+          type: "secret_ref",
+          secretId: anthropicSecret.id,
+          version: "latest",
+        };
+        effectiveAdapterConfig.env = env;
+      }
+    }
+
+    const normalizedBaseConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
+      companyId,
+      applyCreateDefaultsByAdapterType(effectiveAdapterType, effectiveAdapterConfig),
+      { strictMode: strictSecretsMode },
+    );
+
+    const createdAgents: Array<{ id: string; name: string; role: string }> = [];
+
+    // Create agents in order so we can resolve reportsTo references
+    for (const agentDef of template.agents) {
+      const reportsTo = agentDef.reportsToIndex != null
+        ? createdAgents[agentDef.reportsToIndex]?.id ?? null
+        : null;
+
+      const agent = await svc.create(companyId, {
+        name: agentDef.name,
+        role: agentDef.role,
+        title: agentDef.title,
+        icon: agentDef.icon,
+        capabilities: agentDef.capabilities,
+        reportsTo,
+        adapterType: effectiveAdapterType,
+        adapterConfig: normalizedBaseConfig,
+        runtimeConfig: {},
+        status: "idle",
+        spentMonthlyCents: 0,
+        lastHeartbeatAt: null,
+        budgetMonthlyCents: 0,
+        permissions: {},
+        metadata: null,
+      });
+
+      createdAgents.push({ id: agent.id, name: agent.name, role: agent.role });
+
+      const actor = getActorInfo(req);
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "agent.created",
+        entityType: "agent",
+        entityId: agent.id,
+        details: { name: agent.name, role: agent.role, templateId },
+      });
+    }
+
+    res.status(201).json({
+      templateId,
+      templateName: template.name,
+      agents: createdAgents,
+    });
   });
 
   router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {

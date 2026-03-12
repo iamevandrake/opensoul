@@ -242,6 +242,13 @@ export {
 } from "./project-mentions.js";
 
 export {
+  TEAM_TEMPLATES,
+  getTeamTemplate,
+  type TeamTemplate,
+  type TeamTemplateAgent,
+} from "./team-templates.js";
+
+export {
   paperclipConfigSchema,
   configMetaSchema,
   llmConfigSchema,

@@ -7,6 +7,7 @@ import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
 import { heartbeatsApi } from "../api/heartbeats";
+import { authApi } from "../api/auth";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -19,10 +20,12 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Sparkles, ArrowRight, Users, Zap, FolderOpen } from "lucide-react";
+import { ConsumerOnboarding } from "../components/ConsumerOnboarding";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { Button } from "@/components/ui/button";
 import type { Agent, Issue } from "@paperclipai/shared";
 
 function getRecentIssues(issues: Issue[]): Issue[] {
@@ -30,14 +33,83 @@ function getRecentIssues(issues: Issue[]): Issue[] {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
+function ConsumerWelcome({
+  userName,
+  onGetStarted,
+  onDismiss,
+}: {
+  userName: string | null;
+  onGetStarted: () => void;
+  onDismiss: () => void;
+}) {
+  const greeting = userName ? `Welcome, ${userName}` : "Welcome to your workspace";
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="max-w-lg w-full text-center space-y-6">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Sparkles className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Your workspace is ready. Set up your AI agent team to start automating your marketing workflows.
+        </p>
+
+        <div className="grid gap-3 text-left mt-8">
+          <div className="flex items-start gap-3 rounded-md border border-border p-4">
+            <Users className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Create your agent team</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Add AI agents to handle content, campaigns, and more.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-md border border-border p-4">
+            <FolderOpen className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Set up a project</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Organize work into projects with goals and tasks.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-md border border-border p-4">
+            <Zap className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Watch agents work</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Monitor progress in real-time from your dashboard.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+          <Button onClick={onGetStarted} className="w-full sm:w-auto">
+            Get Started
+            <ArrowRight className="h-4 w-4 ml-1.5" />
+          </Button>
+          <Button variant="ghost" onClick={onDismiss} className="w-full sm:w-auto text-muted-foreground">
+            Skip to dashboard
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
+  const [welcomeDismissed, setWelcomeDismissed] = useState(() => {
+    try { return localStorage.getItem("opensoul.welcomeDismissed") === "1"; } catch { return false; }
+  });
   const seenActivityIdsRef = useRef<Set<string>>(new Set());
   const hydratedActivityRef = useRef(false);
   const activityAnimationTimersRef = useRef<number[]>([]);
+
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    retry: false,
+  });
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -183,6 +255,24 @@ export function Dashboard() {
   }
 
   const hasNoAgents = agents !== undefined && agents.length === 0;
+  const hasNoIssues = issues !== undefined && issues.length === 0;
+  const isFreshWorkspace = hasNoAgents && hasNoIssues && !welcomeDismissed;
+
+  const selectedCompanyPrefix = companies.find((c) => c.id === selectedCompanyId)?.issuePrefix ?? null;
+
+  if (isFreshWorkspace) {
+    return (
+      <ConsumerOnboarding
+        userName={session?.user?.name ?? null}
+        companyId={selectedCompanyId!}
+        companyPrefix={selectedCompanyPrefix}
+        onDismiss={() => {
+          setWelcomeDismissed(true);
+          try { localStorage.setItem("opensoul.welcomeDismissed", "1"); } catch {}
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
