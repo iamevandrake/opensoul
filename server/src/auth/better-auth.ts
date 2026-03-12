@@ -3,12 +3,16 @@ import type { IncomingHttpHeaders } from "node:http";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { toNodeHandler } from "better-auth/node";
+import { eq, and } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   authAccounts,
   authSessions,
   authUsers,
   authVerifications,
+  companies,
+  companyMemberships,
+  instanceUserRoles,
 } from "@paperclipai/db";
 import type { Config } from "../config.js";
 
@@ -70,7 +74,11 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
   const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET ?? "paperclip-dev-secret";
   const effectiveTrustedOrigins = trustedOrigins ?? deriveAuthTrustedOrigins(config);
 
-  const authConfig = {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const googleEnabled = Boolean(googleClientId && googleClientSecret);
+
+  const authConfig: Record<string, unknown> = {
     baseURL: baseUrl,
     secret,
     trustedOrigins: effectiveTrustedOrigins,
@@ -87,13 +95,102 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       enabled: true,
       requireEmailVerification: false,
     },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user: { id: string; name: string; email: string }) => {
+            await ensureUserHasCompany(db, user);
+          },
+        },
+      },
+    },
   };
 
-  if (!baseUrl) {
-    delete (authConfig as { baseURL?: string }).baseURL;
+  if (googleEnabled) {
+    authConfig.socialProviders = {
+      google: {
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+      },
+    };
   }
 
-  return betterAuth(authConfig);
+  if (!baseUrl) {
+    delete authConfig.baseURL;
+  }
+
+  return betterAuth(authConfig as Parameters<typeof betterAuth>[0]);
+}
+
+/**
+ * Auto-create a company and membership for a newly registered user.
+ * Called from the better-auth databaseHooks after user creation.
+ */
+async function ensureUserHasCompany(
+  db: Db,
+  user: { id: string; name: string; email: string },
+): Promise<void> {
+  // Check if user already has a company membership
+  const existing = await db
+    .select({ id: companyMemberships.id })
+    .from(companyMemberships)
+    .where(
+      and(
+        eq(companyMemberships.principalType, "user"),
+        eq(companyMemberships.principalId, user.id),
+      ),
+    )
+    .then((rows) => rows[0] ?? null);
+  if (existing) return;
+
+  // Derive a company name from the user's name
+  const companyName = user.name ? `${user.name}'s Workspace` : "My Workspace";
+
+  // Derive unique issue prefix
+  const FALLBACK = "CMP";
+  const base = companyName.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || FALLBACK;
+  let company: { id: string } | undefined;
+  let suffix = 1;
+  while (suffix < 100) {
+    const candidate = suffix <= 1 ? base : `${base}${"A".repeat(suffix - 1)}`;
+    try {
+      const rows = await db
+        .insert(companies)
+        .values({ name: companyName, issuePrefix: candidate })
+        .returning({ id: companies.id });
+      company = rows[0];
+      break;
+    } catch (error: unknown) {
+      const code = typeof error === "object" && error !== null && "code" in error
+        ? (error as { code?: string }).code
+        : undefined;
+      if (code !== "23505") throw error;
+    }
+    suffix += 1;
+  }
+  if (!company) return;
+
+  // Make user an instance admin (for their own instance in consumer mode)
+  const hasAdminRole = await db
+    .select({ id: instanceUserRoles.id })
+    .from(instanceUserRoles)
+    .where(and(eq(instanceUserRoles.userId, user.id), eq(instanceUserRoles.role, "instance_admin")))
+    .then((rows) => rows[0] ?? null);
+  if (!hasAdminRole) {
+    await db.insert(instanceUserRoles).values({
+      userId: user.id,
+      role: "instance_admin",
+    });
+  }
+
+  // Add user as company owner
+  await db.insert(companyMemberships).values({
+    companyId: company.id,
+    principalType: "user",
+    principalId: user.id,
+    status: "active",
+    membershipRole: "owner",
+  });
 }
 
 export function createBetterAuthHandler(auth: BetterAuthInstance): RequestHandler {
