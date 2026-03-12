@@ -853,6 +853,20 @@ export function agentRoutes(db: Db) {
     const effectiveAdapterType = adapterType || "claude_local";
     const effectiveAdapterConfig = baseAdapterConfig ?? {};
 
+    // Auto-inject ANTHROPIC_API_KEY secret ref if the company has one stored
+    const anthropicSecret = await secretsSvc.getByName(companyId, "ANTHROPIC_API_KEY");
+    if (anthropicSecret) {
+      const env = (effectiveAdapterConfig.env ?? {}) as Record<string, unknown>;
+      if (!env.ANTHROPIC_API_KEY) {
+        env.ANTHROPIC_API_KEY = {
+          type: "secret_ref",
+          secretId: anthropicSecret.id,
+          version: "latest",
+        };
+        effectiveAdapterConfig.env = env;
+      }
+    }
+
     const normalizedBaseConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
       companyId,
       applyCreateDefaultsByAdapterType(effectiveAdapterType, effectiveAdapterConfig),
