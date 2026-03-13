@@ -239,7 +239,7 @@ export function Dashboard() {
       return (
         <EmptyState
           icon={LayoutDashboard}
-          message="Welcome to opensoul. Set up your first marketing agency and agents to get started."
+          message="Welcome to Soulsquad. Set up your first marketing agency and agents to get started."
           action="Get Started"
           onAction={openOnboarding}
         />

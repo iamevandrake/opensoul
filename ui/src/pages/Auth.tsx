@@ -96,11 +96,11 @@ export function AuthPage() {
         <div className="w-full max-w-md mx-auto my-auto px-8 py-12">
           <div className="flex items-center gap-2 mb-8">
             <Sparkles className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">opensoul</span>
+            <span className="text-sm font-medium">Soulsquad</span>
           </div>
 
           <h1 className="text-xl font-semibold">
-            {mode === "sign_in" ? "Sign in to opensoul" : "Create your opensoul account"}
+            {mode === "sign_in" ? "Sign in to Soulsquad" : "Create your Soulsquad account"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "sign_in"
