@@ -117,11 +117,22 @@ export function ApiKeyManager({
     setError(null);
 
     try {
+      // Validate the key against Anthropic's API before saving
+      const validation = await secretsApi.validateAnthropicKey(companyId, trimmed);
+      if (!validation.valid) {
+        setError(validation.error ?? "Invalid API key");
+        return;
+      }
+
       if (anthropicSecret) {
         await rotateMutation.mutateAsync(trimmed);
       } else {
         await createMutation.mutateAsync(trimmed);
       }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to validate API key",
+      );
     } finally {
       setValidating(false);
     }

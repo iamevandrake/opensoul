@@ -161,5 +161,43 @@ export function secretRoutes(db: Db) {
     res.json({ ok: true });
   });
 
+  // Validate an Anthropic API key by making a lightweight API call
+  router.post("/companies/:companyId/secrets/validate-anthropic-key", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const { value } = req.body as { value?: string };
+    if (!value || typeof value !== "string") {
+      res.status(400).json({ valid: false, error: "API key value is required" });
+      return;
+    }
+
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/models", {
+        method: "GET",
+        headers: {
+          "x-api-key": value,
+          "anthropic-version": "2023-06-01",
+        },
+      });
+
+      if (resp.ok) {
+        res.json({ valid: true });
+      } else if (resp.status === 401) {
+        res.json({ valid: false, error: "Invalid API key" });
+      } else if (resp.status === 403) {
+        res.json({ valid: false, error: "API key lacks required permissions" });
+      } else {
+        res.json({ valid: false, error: `Anthropic API returned ${resp.status}` });
+      }
+    } catch (err) {
+      res.status(502).json({
+        valid: false,
+        error: "Could not reach Anthropic API to validate key",
+      });
+    }
+  });
+
   return router;
 }

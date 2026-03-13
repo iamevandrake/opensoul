@@ -22,4 +22,9 @@ export const secretsApi = {
     data: { name?: string; description?: string | null; externalRef?: string | null },
   ) => api.patch<CompanySecret>(`/secrets/${id}`, data),
   remove: (id: string) => api.delete<{ ok: true }>(`/secrets/${id}`),
+  validateAnthropicKey: (companyId: string, value: string) =>
+    api.post<{ valid: boolean; error?: string }>(
+      `/companies/${companyId}/secrets/validate-anthropic-key`,
+      { value },
+    ),
 };

@@ -1244,6 +1244,23 @@ export function heartbeatService(db: Db) {
         agent.companyId,
         mergedConfig,
       );
+
+      // BYOK check: if adapter config references ANTHROPIC_API_KEY but it resolved
+      // to empty/missing, fail early with a clear message
+      const resolvedEnv = (resolvedConfig.env ?? {}) as Record<string, unknown>;
+      const adapterEnv = (mergedConfig.env ?? {}) as Record<string, unknown>;
+      if (
+        adapterEnv.ANTHROPIC_API_KEY &&
+        typeof adapterEnv.ANTHROPIC_API_KEY === "object" &&
+        (adapterEnv.ANTHROPIC_API_KEY as Record<string, unknown>).type === "secret_ref" &&
+        !resolvedEnv.ANTHROPIC_API_KEY
+      ) {
+        throw new Error(
+          "BYOK: ANTHROPIC_API_KEY secret reference could not be resolved. " +
+          "The user may need to configure their API key in Settings.",
+        );
+      }
+
       const onAdapterMeta = async (meta: AdapterInvocationMeta) => {
         await appendRunEvent(currentRun, seq++, {
           eventType: "adapter.invoke",
