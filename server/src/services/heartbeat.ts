@@ -22,6 +22,7 @@ import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
+import { billingService } from "./billing.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
@@ -1062,6 +1063,29 @@ export function heartbeatService(db: Db) {
       if (failedRun) await releaseIssueExecutionAndPromote(failedRun);
       return;
     }
+
+    // Entitlement gate: check subscription allows this run
+    const billingSvc = billingService(db);
+    const entitlements = await billingSvc.getEntitlements(agent.companyId);
+    if (!entitlements.canRun) {
+      const reason = !entitlements.isActive
+        ? "Subscription is not active"
+        : "Monthly run limit reached for current plan";
+      await setRunStatus(runId, "failed", {
+        error: `Billing: ${reason}`,
+        errorCode: "billing_limit",
+        finishedAt: new Date(),
+      });
+      await setWakeupStatus(run.wakeupRequestId, "failed", {
+        finishedAt: new Date(),
+        error: reason,
+      });
+      const failedRun = await getRun(runId);
+      if (failedRun) await releaseIssueExecutionAndPromote(failedRun);
+      return;
+    }
+    // Record this run for usage metering
+    await billingSvc.recordRun(agent.companyId);
 
     const runtime = await ensureRuntimeState(agent);
     const context = parseObject(run.contextSnapshot);

@@ -8,6 +8,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Settings, Check, Key } from "lucide-react";
 import { ApiKeyManager } from "../components/ApiKeyManager";
+import { BillingSettings } from "../components/BillingSettings";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -377,6 +378,16 @@ export function CompanySettings() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Billing */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Billing
+        </div>
+        <div className="rounded-md border border-border px-4 py-4">
+          <BillingSettings companyId={selectedCompanyId!} />
         </div>
       </div>
 
