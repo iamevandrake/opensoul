@@ -16,7 +16,8 @@ function getStripeClient() {
       return null;
     }
   }
-  return new Stripe(key, { apiVersion: "2024-12-18.acacia" as string });
+  if (!Stripe) return null;
+  return new Stripe(key, { apiVersion: "2024-12-18.acacia" as any });
 }
 
 export function billingService(db: Db) {

@@ -30,6 +30,7 @@ server/src/**/*.js
 server/src/**/*.js.map
 server/src/**/*.d.ts
 server/src/**/*.d.ts.map
+!server/src/types/express.d.ts
 tmp/
 
 # Editor / tool temp files
