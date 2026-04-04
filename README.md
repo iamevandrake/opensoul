@@ -19,7 +19,7 @@
 
 # An AI marketing agency that runs itself
 
-**opensoul is a pre-configured [Paperclip](https://github.com/WeAreBini/paperclip) deployment built specifically for marketing agencies.**
+**opensoul is a pre-configured [Paperclip](https://github.com/paperclipai/paperclip/) deployment built specifically for marketing agencies.**
 
 It's a full agentic marketing stack. A team of AI agents organized as a real marketing agency. Director at the top. Strategy, creative, production, growth, and analytics below.
 
@@ -117,7 +117,7 @@ This starts the API server at `http://localhost:3200`. An embedded PostgreSQL da
 
 ## How It Works
 
-opensoul is built on [Paperclip](https://github.com/WeAreBini/paperclip), the open-source orchestration platform for AI agent companies. Everything Paperclip can do, opensoul can do. It's just pre-configured for marketing.
+opensoul is built on [Paperclip](https://github.com/paperclipai/paperclip/), the open-source orchestration platform for AI agent companies. Everything Paperclip can do, opensoul can do. It's just pre-configured for marketing.
 
 - **Heartbeats**: Agents wake on a schedule, check their work, and act
 - **Delegation**: The Director breaks strategy into tasks and assigns them down the org chart
@@ -148,5 +148,5 @@ MIT &copy; 2026 Simhasana LLC
 ---
 
 <p align="center">
-  <sub>Open source under MIT &copy; Simhasana LLC. Built on <a href="https://github.com/WeAreBini/paperclip">Paperclip</a>. Made for marketers who want results, not busywork.</sub>
+  <sub>Open source under MIT &copy; Simhasana LLC. Built on <a href="https://github.com/paperclipai/paperclip/">Paperclip</a>. Made for marketers who want results, not busywork.</sub>
 </p>
