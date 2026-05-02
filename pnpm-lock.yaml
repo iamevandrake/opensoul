@@ -321,6 +321,9 @@ importers:
       '@types/ws':
         specifier: ^8.5.14
         version: 8.18.1
+      stripe:
+        specifier: ^21.0.1
+        version: 21.0.1(@types/node@22.19.11)
       supertest:
         specifier: ^7.0.0
         version: 7.2.2
@@ -5171,6 +5174,15 @@ packages:
 
   strip-literal@3.1.0:
     resolution: {integrity: sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==}
+
+  stripe@21.0.1:
+    resolution: {integrity: sha512-ocv0j7dWttswDWV2XL/kb6+yiLpDXNXL3RQAOB5OB2kr49z0cEatdQc12+zP/j5nrXk6rAsT4N3y/NUvBbK7Pw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/node': '>=18'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   strnum@2.1.2:
     resolution: {integrity: sha512-l63NF9y/cLROq/yqKXSLtcMeeyOfnSQlfMSlzFt/K73oIaD8DGaQWd7Z34X9GPiKqP5rbSh84Hl4bOlLcjiSrQ==}
@@ -11389,6 +11401,10 @@ snapshots:
   strip-literal@3.1.0:
     dependencies:
       js-tokens: 9.0.1
+
+  stripe@21.0.1(@types/node@22.19.11):
+    optionalDependencies:
+      '@types/node': 22.19.11
 
   strnum@2.1.2: {}
 
